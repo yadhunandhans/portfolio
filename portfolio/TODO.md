@@ -1,0 +1,5 @@
+- [x] Add 3D tilt effect on hover for tech items
+- [x] Add floating animation to tech icons
+- [x] Add 3D perspective and depth to hero section
+- [x] Add subtle 3D transforms to sections on scroll
+- [x] Test the updated site with new effects

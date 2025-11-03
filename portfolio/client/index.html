@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Medical Image Chat</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; }
+      .row { display:flex; gap:1rem; align-items:center; }
+      .chat { border:1px solid #ddd; padding:1rem; border-radius:8px; max-width:800px; }
+      .msg { margin-bottom:0.75rem; }
+      .msg.user { color:#0b5; }
+      .msg.assistant { color:#06c; }
+      .disclaimer { font-size:0.9rem; color:#555; margin-top:0.5rem; }
+      .banner { background:#fff8e1; border:1px solid #f0c36d; padding:0.75rem; border-radius:8px; margin-bottom:1rem; }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <strong>Important:</strong> This tool is for educational support only and does not provide medical advice. Do not upload personally identifiable information (PHI). Proceed only with consent.
+    </div>
+
+    <h1>Medical Image Analysis Chat</h1>
+
+    <div class="row">
+      <input id="image" type="file" accept="image/*" />
+      <input id="prompt" type="text" placeholder="Describe what to analyze" style="flex:1" />
+      <button id="analyze">Analyze</button>
+    </div>
+
+    <div class="chat" id="chat"></div>
+
+    <div class="row" style="margin-top:1rem;">
+      <input id="message" type="text" placeholder="Ask a follow-up question" style="flex:1" />
+      <label><input type="checkbox" id="includeImage" checked /> Include image</label>
+      <button id="send">Send</button>
+    </div>
+
+    <script>
+      const chatEl = document.getElementById('chat');
+      const messages = [];
+
+      function addMsg(role, content, disclaimer) {
+        const div = document.createElement('div');
+        div.className = `msg ${role}`;
+        div.textContent = `${role === 'user' ? 'You' : 'Assistant'}: ${content}`;
+        chatEl.appendChild(div);
+        if (disclaimer && role === 'assistant') {
+          const d = document.createElement('div');
+          d.className = 'disclaimer';
+          d.textContent = disclaimer;
+          chatEl.appendChild(d);
+        }
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      document.getElementById('analyze').onclick = async () => {
+        const file = document.getElementById('image').files[0];
+        const prompt = document.getElementById('prompt').value;
+        if (!file) { alert('Select an image'); return; }
+        addMsg('user', `Analyze: ${prompt || '(no prompt)'}`);
+        const fd = new FormData();
+        fd.append('image', file);
+        fd.append('prompt', prompt);
+        const res = await fetch('http://localhost:8000/analyze', { method: 'POST', body: fd });
+        const data = await res.json();
+        messages.push({ role: 'user', content: prompt || 'Analyze this image.' });
+        messages.push({ role: 'assistant', content: data.result });
+        addMsg('assistant', data.result, data.disclaimer);
+      };
+
+      document.getElementById('send').onclick = async () => {
+        const text = document.getElementById('message').value;
+        const include = document.getElementById('includeImage').checked;
+        if (!text) return;
+        addMsg('user', text);
+        messages.push({ role: 'user', content: text });
+        const file = document.getElementById('image').files[0] || null;
+
+        const fd = new FormData();
+        fd.append('req', new Blob([JSON.stringify({ messages, include_last_image: include })], { type: 'application/json' }));
+        if (include && file) fd.append('image', file);
+        const res = await fetch('http://localhost:8000/chat', { method: 'POST', body: fd });
+        const data = await res.json();
+        messages.push({ role: 'assistant', content: data.result });
+        addMsg('assistant', data.result, data.disclaimer);
+        document.getElementById('message').value = '';
+      };
+    </script>
+  </body>
+</html>
